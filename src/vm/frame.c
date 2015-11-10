@@ -53,6 +53,7 @@ falloc_get_frame (enum palloc_flags flags)
 	{
 		struct frame *frame = (struct frame*)malloc (sizeof (struct frame));
 		frame->addr = f;
+		frame->thread = thread_current ();
 		lock_acquire (&frame_lock);
 		hash_insert (&frame_table, &frame->hash_elem);
 		lock_release (&frame_lock);
