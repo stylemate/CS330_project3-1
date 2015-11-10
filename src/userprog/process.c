@@ -258,6 +258,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char *save_ptr)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
+  t->sup_page = (struct sup_page*) malloc (sizeof (struct sup_page));
   if (t->pagedir == NULL)
     goto done;
   process_activate ();

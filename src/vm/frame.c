@@ -67,10 +67,10 @@ falloc_free_frame (void *frame)
 {
 	struct frame *f;
 	struct hash_elem *e;
-	struct frame elem;
-	elem.addr = frame;
+	struct frame *elem;
+	elem->addr = frame;
 
-	e = hash_find (&frame_table, &elem.hash_elem);
+	e = hash_find (&frame_table, &elem->hash_elem);
 	if (e == NULL)
 		printf("No frame to free");
 	else

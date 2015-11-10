@@ -130,9 +130,9 @@ struct thread
 #endif
 
 #ifdef VM
-    struct sup_page *sup_page_table;
+    struct sup_page *sup_page;
 #endif
-    
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
