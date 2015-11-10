@@ -38,7 +38,7 @@ frame_less (const struct hash_elem *a_, const struct hash_elem *b_,
 }
 
 void *
-falloc_get_frame (enum palloc_flags flags)
+falloc_get_frame (void *upage, enum palloc_flags flags)
 {
 	if ((flags & PAL_USER) == 0)
 		return NULL;	//check if the flag is of the user pool
@@ -54,6 +54,7 @@ falloc_get_frame (enum palloc_flags flags)
 		struct frame *frame = (struct frame*)malloc (sizeof (struct frame));
 		frame->addr = f;
 		frame->thread = thread_current ();
+		frame->upage = upage;
 		lock_acquire (&frame_lock);
 		hash_insert (&frame_table, &frame->hash_elem);
 		lock_release (&frame_lock);
