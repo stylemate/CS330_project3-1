@@ -1,5 +1,7 @@
+#ifndef VM_FRAME_H
+#define VM_FRAME_H
+
 #include <hash.h>
-#include "threads/synch.h"
 #include "threads/palloc.h"
 #include "threads/thread.h"
 
@@ -15,3 +17,5 @@ void frame_init (void);
 
 void *falloc_get_frame (void *, enum palloc_flags);
 void falloc_free_frame (void *);
+
+#endif

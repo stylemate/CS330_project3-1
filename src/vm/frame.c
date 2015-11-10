@@ -1,9 +1,9 @@
-#include "frame.h"
+#include <hash.h>
+#include <stdio.h>
 #include "threads/synch.h"
 #include "threads/malloc.h"
 #include "threads/palloc.h"
-#include <hash.h>
-#include <stdio.h>
+#include "vm/frame.h"
 
 struct hash frame_table;
 struct lock frame_lock;
