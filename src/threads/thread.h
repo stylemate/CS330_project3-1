@@ -5,6 +5,9 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/synch.h"
+#ifdef VM
+#include "vm/page.h"
+#endif
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -115,8 +118,6 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
-
-#endif
     int parent;
     struct list children;
     struct child_process *child;
@@ -126,7 +127,12 @@ struct thread
     int fd;
 
     struct list locks;
+#endif
 
+#ifdef VM
+    struct sup_page *sup_page_table;
+#endif
+    
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
 
