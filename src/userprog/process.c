@@ -78,6 +78,11 @@ start_process (void *file_name_)
   else thread_current()->child->load_status = -1;
   sema_up(&thread_current()->child->load_sema);
 
+  /* supplementary page is initialized for each process started */
+  thread_current ()->spht = (struct hash *)malloc (sizeof (struct hash));
+  sup_page_init (thread_current ()->spht);
+
+
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) thread_exit ();
@@ -155,6 +160,9 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  if (cur->spht != NULL)
+    sup_page_destroy (cur->spht);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -258,7 +266,6 @@ load (const char *file_name, void (**eip) (void), void **esp, char *save_ptr)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  t->sup_page = (struct sup_page*) malloc (sizeof (struct sup_page));
   if (t->pagedir == NULL)
     goto done;
   process_activate ();

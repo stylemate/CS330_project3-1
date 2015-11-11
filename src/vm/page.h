@@ -18,4 +18,7 @@ struct sup_page
 	enum page_location location;/* Where is the page? */
 };
 
+void sup_page_init (struct hash *);
+void sup_page_destroy (struct hash *);
+
 #endif

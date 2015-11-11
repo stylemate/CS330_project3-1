@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "threads/synch.h"
 #ifdef VM
+#include <hash.h>
 #include "vm/page.h"
 #endif
 
@@ -112,12 +113,7 @@ struct thread
     struct list doners;
     struct list_elem donerselem;
 
-    /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
-
-#ifdef USERPROG
-    /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
+    /* userprog */
     int parent;
     struct list children;
     struct child_process *child;
@@ -127,10 +123,17 @@ struct thread
     int fd;
 
     struct list locks;
+
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  /* Page directory. */
 #endif
 
 #ifdef VM
-    struct sup_page *sup_page;
+    struct hash *spht;
 #endif
 
     /* Owned by thread.c. */

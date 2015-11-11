@@ -104,7 +104,6 @@ main (void)
   paging_init ();
 #ifdef VM
   frame_init ();
-  sup_page_init ();
 #endif
 
   /* Segmentation. */
