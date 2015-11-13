@@ -10,12 +10,12 @@ struct frame
 	struct hash_elem hash_elem;	/* Hash table element for frame */
 	void *addr;					/* Virtual address */
 	struct thread *thread;		/* Keeps track of the frames occupied by process */
-	void *upage;				/* Keeps track of corresponding page */
+	// void *upage;				/* Keeps track of corresponding page */
 };
 
 void frame_init (void);
 
-void *falloc_get_frame (void *, enum palloc_flags);
+void *falloc_get_frame (enum palloc_flags);
 void falloc_free_frame (void *);
 
 #endif

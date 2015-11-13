@@ -26,8 +26,6 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char *save_ptr);
 
-void *passing_page;
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -245,7 +243,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp, const char *file_name, char *save_ptr, uint8_t *upage);
+static bool setup_stack (void **esp, const char *file_name, char *save_ptr);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -327,7 +325,6 @@ load (const char *file_name, void (**eip) (void), void **esp, char *save_ptr)
               bool writable = (phdr.p_flags & PF_W) != 0;
               uint32_t file_page = phdr.p_offset & ~PGMASK;
               uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
-              passing_page = &mem_page;
               uint32_t page_offset = phdr.p_vaddr & PGMASK;
               uint32_t read_bytes, zero_bytes;
               if (phdr.p_filesz > 0)
@@ -356,7 +353,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char *save_ptr)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp, file_name, save_ptr, passing_page))
+  if (!setup_stack (esp, file_name, save_ptr))
     goto done;
 
   /* Start address. */
@@ -469,6 +466,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       //     return false;
       //   }
 
+      struct thread *t = thread_current ();
       struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
       if (spt)
       {
@@ -480,10 +478,10 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
         spt->zero_bytes = page_zero_bytes;
         spt->writable = writable;
 
-        // printf("wrote down all the info on spt");
-
-        if (hash_insert (&thread_current ()->spht, &spt->hash_elem) == NULL)
-          return false;
+        // printf("wrote down all the info on spt\n\n");
+        ASSERT (t->spht != NULL);
+        ASSERT (hash_insert (t->spht, &spt->hash_elem) == NULL);
+        // printf("hash inserted\n\n");
       }
       else
         return false;
@@ -500,12 +498,12 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, const char *file_name, char *save_ptr, uint8_t *upage)
+setup_stack (void **esp, const char *file_name, char *save_ptr)
 {
   uint8_t *kpage;
   bool success = false;
 
-  kpage = falloc_get_frame (upage, PAL_USER | PAL_ZERO);
+  kpage = falloc_get_frame (PAL_USER | PAL_ZERO);
   if (kpage == NULL) return success;
   success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
   if (success)

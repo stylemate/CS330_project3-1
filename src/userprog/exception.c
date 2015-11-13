@@ -169,8 +169,8 @@ page_fault (struct intr_frame *f)
   struct hash_elem *e = hash_find (t->spht, &spt->hash_elem);
 
   // ASSERT (e != NULL); //check validity.
-  if (!e)
-    kill (f);
+  if (e == NULL)
+    exit (-1);
 
   spt = hash_entry (e, struct sup_page, hash_elem);
 
@@ -200,11 +200,11 @@ page_fault (struct intr_frame *f)
 
 bool load_file_segment (struct sup_page *spt)
 {
-  struct thread *t = thread_current ();
-  void *addr = pagedir_get_page (t->pagedir, spt->addr);
+  // struct thread *t = thread_current ();
+  // void *addr = pagedir_get_page (t->pagedir, spt->addr);
 
   /* Get a page of memory. */
-  uint8_t *f = falloc_get_frame (addr, PAL_USER);
+  uint8_t *f = falloc_get_frame (PAL_USER);
   if (f == NULL)
     return false;
 
