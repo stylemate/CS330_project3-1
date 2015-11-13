@@ -26,6 +26,8 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char *save_ptr);
 
+uint8_t passing_page;
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -244,7 +246,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp, const char *file_name, char *save_ptr);
+static bool setup_stack (void **esp, const char *file_name, char *save_ptr, uint8_t *upage);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -326,6 +328,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char *save_ptr)
               bool writable = (phdr.p_flags & PF_W) != 0;
               uint32_t file_page = phdr.p_offset & ~PGMASK;
               uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
+              passing_page = mem_page;
               uint32_t page_offset = phdr.p_vaddr & PGMASK;
               uint32_t read_bytes, zero_bytes;
               if (phdr.p_filesz > 0)
@@ -354,7 +357,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char *save_ptr)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp, file_name, save_ptr))
+  if (!setup_stack (esp, file_name, save_ptr, passing_page))
     goto done;
 
   /* Start address. */
@@ -478,18 +481,18 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, const char *file_name, char *save_ptr)
+setup_stack (void **esp, const char *file_name, char *save_ptr, uint8_t *upage)
 {
   uint8_t *kpage;
   bool success = false;
 
-  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+  kpage = falloc_get_frame (upage, PAL_USER | PAL_ZERO);
   if (kpage == NULL) return success;
   success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
   if (success)
     *esp = PHYS_BASE;
   else{
-    palloc_free_page (kpage);
+    falloc_free_frame (kpage);
     return success;
   }
 
