@@ -67,10 +67,6 @@ start_process (void *file_name_)
   char *save_ptr;
   file_name = strtok_r(file_name, " ", &save_ptr);
 
-  /* supplementary page is initialized for each process started */
-  thread_current ()->spht = (struct hash *)malloc (sizeof (struct hash));
-  sup_page_init (thread_current ()->spht);
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -265,7 +261,12 @@ load (const char *file_name, void (**eip) (void), void **esp, char *save_ptr)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  if (t->pagedir == NULL)
+
+  /* supplementary page is initialized for each process started */
+  t->spht = (struct hash *)malloc (sizeof (struct hash));
+  sup_page_init (t->spht);
+
+  if (t->pagedir == NULL || t->spht == NULL)
     goto done;
   process_activate ();
 

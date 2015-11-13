@@ -20,6 +20,8 @@ static long long page_fault_cnt;
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
 bool load_file_segment (struct sup_page *spt);
+bool load_swap_segment (struct sup_page *spt);
+bool load_zero_segment (struct sup_page *spt);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -170,7 +172,14 @@ page_fault (struct intr_frame *f)
 
   // ASSERT (e != NULL); //check validity.
   if (e == NULL)
-    exit (-1);
+  {
+    printf ("Page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
+    kill (f);
+  }
 
   spt = hash_entry (e, struct sup_page, hash_elem);
 
@@ -181,8 +190,10 @@ page_fault (struct intr_frame *f)
       success = load_file_segment (spt);
       break;
     case SWAP_DISK:
+      success = load_swap_segment (spt);
       break;
     case ZERO:
+      success = load_zero_segment (spt);
       break;
   }
 
@@ -223,5 +234,20 @@ bool load_file_segment (struct sup_page *spt)
     return false;
   }
 
+  return true;
+}
+
+bool load_swap_segment (struct sup_page *spt)
+{
+  return false;
+}
+
+bool load_zero_segment (struct sup_page *spt)
+{
+  uint8_t *f = falloc_get_frame (PAL_USER);
+  if (f == NULL)
+    return false;
+
+  memset (f, 0, PGSIZE);
   return true;
 }
