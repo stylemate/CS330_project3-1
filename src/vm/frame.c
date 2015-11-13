@@ -51,7 +51,7 @@ falloc_get_frame (void *upage, enum palloc_flags flags)
 	}
 	else
 	{
-		struct frame *frame = (struct frame*)malloc (sizeof (struct frame));
+		struct frame *frame = (struct frame*) malloc (sizeof (struct frame));
 		frame->addr = f;
 		frame->thread = thread_current ();
 		frame->upage = upage;
@@ -67,7 +67,7 @@ falloc_free_frame (void *frame)
 {
 	struct frame *f;
 	struct hash_elem *e;
-	struct frame *elem;
+	struct frame *elem = (struct frame *) malloc (sizeof (struct frame));
 	elem->addr = frame;
 
 	e = hash_find (&frame_table, &elem->hash_elem);

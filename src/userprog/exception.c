@@ -6,13 +6,20 @@
 #include "threads/thread.h"
 #include <hash.h>
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
+#include "vm/frame.h"
 #include "vm/page.h"
+#include "userprog/pagedir.h"
+#include "userprog/syscall.h"
+#include "userprog/process.h"
+#include <string.h>
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill (struct intr_frame *);
 static void page_fault (struct intr_frame *);
+bool load_file_segment (struct sup_page *spt);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -154,20 +161,67 @@ page_fault (struct intr_frame *f)
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-     exit (-1);
-  // struct thread *t = thread_current ();
+  struct thread *t = thread_current ();
+  struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
+  bool success = false;
 
-  // struct sup_page *spt;
-  // spt->addr = pg_round_down (fault_addr);
+  spt->addr = pg_round_down (fault_addr);
+  struct hash_elem *e = hash_find (t->spht, &spt->hash_elem);
 
-  // struct hash_elem *e = hash_find (&t->sup_page, &spt->hash_elem);
   // ASSERT (e != NULL); //check validity.
+  if (!e)
+    kill (f);
 
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+  spt = hash_entry (e, struct sup_page, hash_elem);
+
+  ASSERT (spt != NULL);
+  switch (spt->location)
+  {
+    case FILE_SYSTEM:
+      success = load_file_segment (spt);
+      break;
+    case SWAP_DISK:
+      break;
+    case ZERO:
+      break;
+  }
+
+  if(!success)
+  {
+    printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-  kill (f);
+    kill (f);
+  }
+
 }
 
+bool load_file_segment (struct sup_page *spt)
+{
+  struct thread *t = thread_current ();
+  void *addr = pagedir_get_page (t->pagedir, spt->addr);
+
+  /* Get a page of memory. */
+  uint8_t *f = falloc_get_frame (addr, PAL_USER);
+  if (f == NULL)
+    return false;
+
+  /* Load this page. */
+  if (file_read_at (spt->file, f, spt->read_bytes, spt->ofs) != (int) spt->read_bytes)
+  {
+    falloc_free_frame (f);
+    return false;
+  }
+  memset (f + spt->read_bytes, 0, spt->zero_bytes);
+
+  /* Add the page to the process's address space. */
+  if (!install_spt (spt->addr, f, spt->writable))
+  {
+    falloc_free_frame (f);
+    return false;
+  }
+
+  return true;
+}

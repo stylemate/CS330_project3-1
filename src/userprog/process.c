@@ -26,7 +26,7 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp, char *save_ptr);
 
-uint8_t passing_page;
+void *passing_page;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -69,6 +69,10 @@ start_process (void *file_name_)
   char *save_ptr;
   file_name = strtok_r(file_name, " ", &save_ptr);
 
+  /* supplementary page is initialized for each process started */
+  thread_current ()->spht = (struct hash *)malloc (sizeof (struct hash));
+  sup_page_init (thread_current ()->spht);
+
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
@@ -79,11 +83,6 @@ start_process (void *file_name_)
   if (success) thread_current()->child->load_status = 1;
   else thread_current()->child->load_status = -1;
   sema_up(&thread_current()->child->load_sema);
-
-  /* supplementary page is initialized for each process started */
-  thread_current ()->spht = (struct hash *)malloc (sizeof (struct hash));
-  sup_page_init (thread_current ()->spht);
-
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -328,7 +327,7 @@ load (const char *file_name, void (**eip) (void), void **esp, char *save_ptr)
               bool writable = (phdr.p_flags & PF_W) != 0;
               uint32_t file_page = phdr.p_offset & ~PGMASK;
               uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
-              passing_page = mem_page;
+              passing_page = &mem_page;
               uint32_t page_offset = phdr.p_vaddr & PGMASK;
               uint32_t read_bytes, zero_bytes;
               if (phdr.p_filesz > 0)
@@ -450,30 +449,50 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      /* Get a page of memory. */
-      uint8_t *kpage = falloc_get_frame (upage, PAL_USER);
-      if (kpage == NULL)
+      // /* Get a page of memory. */
+      // uint8_t *kpage = falloc_get_frame (upage, PAL_USER);
+      // if (kpage == NULL)
+      //   return false;
+
+      // /* Load this page. */
+      // if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+      //   {
+      //     falloc_free_frame (kpage);
+      //     return false;
+      //   }
+      // memset (kpage + page_read_bytes, 0, page_zero_bytes);
+
+      // /* Add the page to the process's address space. */
+      // if (!install_page (upage, kpage, writable))
+      //   {
+      //     falloc_free_frame (kpage);
+      //     return false;
+      //   }
+
+      struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
+      if (spt)
+      {
+        spt->location = FILE_SYSTEM;
+        spt->file = file;
+        spt->ofs = ofs;
+        spt->addr = upage;
+        spt->read_bytes = page_read_bytes;
+        spt->zero_bytes = page_zero_bytes;
+        spt->writable = writable;
+
+        // printf("wrote down all the info on spt");
+
+        if (hash_insert (&thread_current ()->spht, &spt->hash_elem) == NULL)
+          return false;
+      }
+      else
         return false;
-
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-        {
-          falloc_free_frame (kpage);
-          return false;
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable))
-        {
-          falloc_free_frame (kpage);
-          return false;
-        }
 
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
+      ofs += PGSIZE;
     }
   return true;
 }
@@ -561,6 +580,17 @@ setup_stack (void **esp, const char *file_name, char *save_ptr, uint8_t *upage)
    if memory allocation fails. */
 static bool
 install_page (void *upage, void *kpage, bool writable)
+{
+  struct thread *t = thread_current ();
+
+  /* Verify that there's not already a page at that virtual
+     address, then map our page there. */
+  return (pagedir_get_page (t->pagedir, upage) == NULL
+          && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+bool
+install_spt (void *upage, void *kpage, bool writable)
 {
   struct thread *t = thread_current ();
 
