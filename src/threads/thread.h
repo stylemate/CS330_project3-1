@@ -134,6 +134,7 @@ struct thread
 
 #ifdef VM
     struct hash *spht;
+    void *esp;                          /* Keeps track of current esp for stack growth */
 #endif
 
     /* Owned by thread.c. */

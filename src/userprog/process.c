@@ -448,7 +448,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = falloc_get_frame (PAL_USER);
+      uint8_t *kpage = falloc_get_frame (upage, PAL_USER);
       if (kpage == NULL)
         return false;
 
@@ -504,13 +504,13 @@ setup_stack (void **esp, const char *file_name, char *save_ptr)
   uint8_t *kpage;
   bool success = false;
 
-  kpage = falloc_get_frame (PAL_USER | PAL_ZERO);
+  kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage == NULL) return success;
   success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
   if (success)
     *esp = PHYS_BASE;
   else{
-    falloc_free_frame (kpage);
+    palloc_free_page (kpage);
     return success;
   }
 

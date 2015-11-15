@@ -14,6 +14,8 @@
 #include "userprog/process.h"
 #include <string.h>
 
+#define MAX_STACK_SIZE 0x00800000 //You should impose some absolute limit on stack size
+
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
@@ -164,22 +166,67 @@ page_fault (struct intr_frame *f)
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
   struct thread *t = thread_current ();
-  struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
   bool success = false;
+  void *esp = f->esp;
+  void *round_addr = pg_round_down (fault_addr);
 
-  spt->addr = pg_round_down (fault_addr);
+  if (fault_addr >= PHYS_BASE)
+    exit (-1);
+
+  /* Stack growth */
+  if (user)
+  {
+    // if (PHYS_BASE - round_addr < MAX_STACK_SIZE)
+    //   goto PAGE_FAULT_VIOLATION;
+    // printf("\nit is a user address ya know\n");
+    t->esp = esp;
+    if (fault_addr >= (esp - 32))
+    {
+      if (PHYS_BASE - round_addr > MAX_STACK_SIZE)
+        goto PAGE_FAULT_VIOLATION;
+      // ASSERT (false);
+      struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
+      if (spt == NULL)
+        goto PAGE_FAULT_VIOLATION;
+      spt->addr = round_addr;
+      // spt->location = SWAP_DISK;
+
+      void *f = falloc_get_frame (round_addr, PAL_USER);
+      if (f == NULL)
+      {
+        free (spt);
+        goto PAGE_FAULT_VIOLATION;
+      }
+
+      if (!install_spt (spt->addr, f, true))
+      {
+        free (spt);
+        falloc_free_frame (f);
+        goto PAGE_FAULT_VIOLATION;
+      }
+
+      if (hash_insert (t->spht, &spt->hash_elem) != NULL)
+        goto PAGE_FAULT_VIOLATION;
+      // void *upage = pg_round_down (fault_addr);
+      // void *kpage = falloc_get_frame (upage, PAL_USER);
+
+      // pagedir_set_page (t->pagedir, upage, kpage, true);
+      // if (!install_spt (upage, kpage, true))
+      //   falloc_free_frame (kpage);
+      return;
+    }
+  }
+
+  /* spt page fault handling */
+  struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
+  
+
+  spt->addr = round_addr;
   struct hash_elem *e = hash_find (t->spht, &spt->hash_elem);
 
   // ASSERT (e != NULL); //check validity.
   if (e == NULL)
-  {
-    printf ("Page fault at %p: %s error %s page in %s context.\n",
-          fault_addr,
-          not_present ? "not present" : "rights violation",
-          write ? "writing" : "reading",
-          user ? "user" : "kernel");
-    kill (f);
-  }
+    goto PAGE_FAULT_VIOLATION;
 
   spt = hash_entry (e, struct sup_page, hash_elem);
 
@@ -198,14 +245,15 @@ page_fault (struct intr_frame *f)
   }
 
   if(!success)
-  {
-    printf ("Page fault at %p: %s error %s page in %s context.\n",
+    goto PAGE_FAULT_VIOLATION;
+
+  PAGE_FAULT_VIOLATION:
+  printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
-    kill (f);
-  }
+  kill (f);
 
 }
 
@@ -215,7 +263,7 @@ bool load_file_segment (struct sup_page *spt)
   // void *addr = pagedir_get_page (t->pagedir, spt->addr);
 
   /* Get a page of memory. */
-  uint8_t *f = falloc_get_frame (PAL_USER);
+  uint8_t *f = falloc_get_frame (spt->addr, PAL_USER);
   if (f == NULL)
     return false;
 
@@ -244,7 +292,7 @@ bool load_swap_segment (struct sup_page *spt)
 
 bool load_zero_segment (struct sup_page *spt)
 {
-  uint8_t *f = falloc_get_frame (PAL_USER);
+  uint8_t *f = falloc_get_frame (spt->addr, PAL_USER);
   if (f == NULL)
     return false;
 
