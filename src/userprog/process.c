@@ -447,51 +447,51 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-      // /* Get a page of memory. */
-      // uint8_t *kpage = falloc_get_frame (upage, PAL_USER);
-      // if (kpage == NULL)
-      //   return false;
-
-      // /* Load this page. */
-      // if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
-      //   {
-      //     falloc_free_frame (kpage);
-      //     return false;
-      //   }
-      // memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      // /* Add the page to the process's address space. */
-      // if (!install_page (upage, kpage, writable))
-      //   {
-      //     falloc_free_frame (kpage);
-      //     return false;
-      //   }
-
-      struct thread *t = thread_current ();
-      struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
-      if (spt)
-      {
-        spt->location = FILE_SYSTEM;
-        spt->file = file;
-        spt->ofs = ofs;
-        spt->addr = upage;
-        spt->read_bytes = page_read_bytes;
-        spt->zero_bytes = page_zero_bytes;
-        spt->writable = writable;
-
-        // printf("wrote down all the info on spt\n\n");
-        ASSERT (t->spht != NULL);
-        ASSERT (hash_insert (t->spht, &spt->hash_elem) == NULL);
-        // printf("hash inserted\n\n");
-      }
-      else
+      /* Get a page of memory. */
+      uint8_t *kpage = falloc_get_frame (PAL_USER);
+      if (kpage == NULL)
         return false;
+
+      /* Load this page. */
+      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+        {
+          falloc_free_frame (kpage);
+          return false;
+        }
+      memset (kpage + page_read_bytes, 0, page_zero_bytes);
+
+      /* Add the page to the process's address space. */
+      if (!install_page (upage, kpage, writable))
+        {
+          falloc_free_frame (kpage);
+          return false;
+        }
+
+      // struct thread *t = thread_current ();
+      // struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
+      // if (spt)
+      // {
+      //   spt->location = FILE_SYSTEM;
+      //   spt->file = file;
+      //   spt->ofs = ofs;
+      //   spt->addr = upage;
+      //   spt->read_bytes = page_read_bytes;
+      //   spt->zero_bytes = page_zero_bytes;
+      //   spt->writable = writable;
+
+      //   // printf("wrote down all the info on spt\n\n");
+      //   ASSERT (t->spht != NULL);
+      //   ASSERT (hash_insert (t->spht, &spt->hash_elem) == NULL);
+      //   // printf("hash inserted\n\n");
+      // }
+      // else
+      //   return false;
 
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
-      ofs += PGSIZE;
+      // ofs += page_read_bytes;
     }
   return true;
 }
