@@ -176,22 +176,21 @@ page_fault (struct intr_frame *f)
   /* Stack growth */
   if (user)
   {
-    // if (PHYS_BASE - round_addr < MAX_STACK_SIZE)
-    //   goto PAGE_FAULT_VIOLATION;
-    // printf("\nit is a user address ya know\n");
     t->esp = esp;
     if (fault_addr >= (esp - 32))
     {
       if (PHYS_BASE - round_addr > MAX_STACK_SIZE)
         goto PAGE_FAULT_VIOLATION;
-      // ASSERT (false);
+
       struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
+
       if (spt == NULL)
         goto PAGE_FAULT_VIOLATION;
+
       spt->addr = round_addr;
-      // spt->location = SWAP_DISK;
 
       void *f = falloc_get_frame (round_addr, PAL_USER);
+
       if (f == NULL)
       {
         free (spt);
@@ -207,24 +206,17 @@ page_fault (struct intr_frame *f)
 
       if (hash_insert (t->spht, &spt->hash_elem) != NULL)
         goto PAGE_FAULT_VIOLATION;
-      // void *upage = pg_round_down (fault_addr);
-      // void *kpage = falloc_get_frame (upage, PAL_USER);
 
-      // pagedir_set_page (t->pagedir, upage, kpage, true);
-      // if (!install_spt (upage, kpage, true))
-      //   falloc_free_frame (kpage);
       return;
     }
   }
 
   /* spt page fault handling */
   struct sup_page *spt = (struct sup_page *) malloc (sizeof (struct sup_page));
-  
 
   spt->addr = round_addr;
   struct hash_elem *e = hash_find (t->spht, &spt->hash_elem);
 
-  // ASSERT (e != NULL); //check validity.
   if (e == NULL)
     goto PAGE_FAULT_VIOLATION;
 
