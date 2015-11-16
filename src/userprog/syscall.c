@@ -31,6 +31,7 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
+    thread_current ()->esp = f->esp;
     int arg[3];
     int esp;
     is_val_ptr((const void *)f->esp);
@@ -138,7 +139,8 @@ void halt(void){
    If the process’s parent waits for it, this is the status that
    will be returned. Conventionally, a status of 0 indicates success
    and nonzero values indicate errors. */
-void exit(int status){
+void exit(int status)
+{
     struct thread *cur = thread_current();
     /* To return its terminating status to parent. */
     if(is_running(cur->parent)) cur->child->status = status;
@@ -237,7 +239,8 @@ int filesize(int fd){
 /* Reads size bytes from the file open as fd into buffer.
    Returns the number of bytes actually read (0 at end of file),
    or -1 if the file could not be read. */
-int read(int fd, void *buffer, unsigned size){
+int read(int fd, void *buffer, unsigned size)
+{
     is_val_buff((const void *)buffer, size);
     void *kbuf = utk_ptr((const void *)buffer);
     if(fd == 0){
@@ -330,7 +333,7 @@ void close(int fd){
 /* Checks if the given pointer PTR is valid(> USR_BOT, < PHYS_BASE)
    or not. Using is_user_vaddr for checking it. */
 void is_val_ptr(const void *ptr){
-    if(!is_user_vaddr(ptr) || ptr < USR_BOT)
+    if(!is_user_vaddr(ptr) || ptr < USR_BOT + PGSIZE)
         exit(-1);
     if(!pagedir_get_page (thread_current ()->pagedir, ptr))
         exit(-1);

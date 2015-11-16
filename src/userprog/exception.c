@@ -170,7 +170,7 @@ page_fault (struct intr_frame *f)
   void *esp = f->esp;
   void *round_addr = pg_round_down (fault_addr);
 
-  if (fault_addr >= PHYS_BASE)
+  if (fault_addr >= PHYS_BASE || !not_present)
     exit (-1);
 
   /* Stack growth */
@@ -240,6 +240,14 @@ page_fault (struct intr_frame *f)
     goto PAGE_FAULT_VIOLATION;
 
   PAGE_FAULT_VIOLATION:
+
+  if (!user)
+  {
+    f->eip = (void *)f->eax;
+    f->eax = -1;
+    return;
+  }
+
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
